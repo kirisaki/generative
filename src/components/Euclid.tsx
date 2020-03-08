@@ -15,13 +15,22 @@ type Rect = {
 }
 
 export const Euclid: React.FC = () => {
-  const [state, setState] = useState(null)
+  const [screen, setScreen] = useState(null)
   const [rects, setRects] = useState<Rect>([])
   useEffect(() => {
-    const scale = 5
-    const numA = 86 * scale
-    const numB = 137 * scale
-    let w = numB
+    if(screen === null){
+      return () => {}
+    }
+    const numA = 17
+    const numB = 29
+    const ratio = numB / numA
+    let w = 0
+    if(screen.width > screen.height){
+      w = screen.height
+    }else{
+      w = screen.width
+    }
+    const l = w
     let x = 0
     let y = 0
     let gen = newRandGen(Date.now())
@@ -32,35 +41,35 @@ export const Euclid: React.FC = () => {
 
     let i = 0
     let results = []
-    while(w > 0){
+    while(w > 0.1){
       i++
       if(i % 2 == 1){
-        while(x + w <= numA){
+        while(x + w * ratio <= l + 0.1){
           const [hue, g] = randRange(0, 360, gen)
           gen = g
           const color = hsvToRgbHex(hue, 0.5, 0.8)
-          results.push({x, y, w, h: w, color})
-          x += w
+          results.push({x, y, w: w * ratio, h: w, color})
+          x += w * ratio
         }
-        w = numA - x
+        w = l - x
       }else{
-        while(y + w <= numB){
+        while(y + w / ratio <= l + 0.1){
           const [hue, g] = randRange(0, 360, gen)
           gen = g
           const color = hsvToRgbHex(hue, 0.7, 1)
-          results.push({x, y, w, h: w, color})
-          y += w
+          results.push({x, y, w, h: w / ratio, color})
+          y += w / ratio
         }
-        w = numB - y
+        w = l - y
       }
     }
     results.reduce((a, b, i) => {
       setTimeout(() => setRects(a.concat(b)), 100 * i)
       return a.concat(b)
     }, [])
-  },[])
+  },[screen])
   return(
-    <SvgCanvas callback={setState}>
+    <SvgCanvas callback={setScreen}>
       {rects.map((r, i) =>
         <rect key = {i} x={r.x} y={r.y} width={r.w} height={r.h} stroke="#eee" strokeWidth="1" fill={r.color} />
       )}
