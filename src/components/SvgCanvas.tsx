@@ -1,8 +1,33 @@
 import * as React from 'react'
+import { useState, useEffect, useRef } from 'react'
 
-export const SvgCanvas: React.FC = ({ children }) => {
+export type ObserverCallback =  (entry: DOMRectReadOnly) => void
+
+type Props<S> = {
+  children: ReactNode
+  callback: ObserverCallback
+}
+
+export const SvgCanvas: React.FC = ({ children, callback }: Props) => {
+  const article = useRef(null);
+  const prev = useRef({width: -2, height: -2})
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(es => {
+      for (let e of es){
+        if (e.target === article.current){
+          const width = e.target.clientWidth
+          const height= e.target.clientHeight
+          if(prev.current.width !== width || prev.current.height !== height){
+            callback(e.contentRect)
+          }
+        }
+      }
+    })
+    resizeObserver.observe(article.current)
+    return () => resizeObserver.unobserve(article.current)
+  }, [article])
   return(
-    <article>
+    <article ref={article}>
       <svg>{children}</svg>
     </article>
   )

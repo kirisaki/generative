@@ -1,14 +1,27 @@
 /** @jsx jsx */
 import * as React from 'react'
-import { } from 'react'
+import { useState, useEffect } from 'react'
 import { Global, jsx, css } from '@emotion/core'
 import { SvgCanvas } from './SvgCanvas'
 
-export const Euclid: React.FC = () => {
+type Rect = {
+  x: number
+  y: number
+  w: number
+  h: number
+}
 
+export const Euclid: React.FC = () => {
+  const [state, setState] = useState(null)
+  const [rects, setRects] = useState<Rect>([])
+  useEffect(() => {
+    setRects([{x: 10, y:10, w:100, h:50}])
+  },[])
   return(
-    <SvgCanvas>
-      <rect x="10" y="10" width="100" height="100" stroke="black" strokeWidth="1" fill="none" />
+    <SvgCanvas callback={setState}>
+      {rects.map((r, i) =>
+        <rect key = {i} x={r.x} y={r.y} width={r.w} height={r.h} stroke="black" strokeWidth="1" fill="none" />
+      )}
     </SvgCanvas>
   )
 }
