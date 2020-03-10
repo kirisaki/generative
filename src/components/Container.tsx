@@ -8,7 +8,7 @@ type Props<S> = {
   callback: ObserverCallback
 }
 
-export const SvgCanvas: React.FC = ({ children, callback }: Props) => {
+export const Container: React.FC = ({ children, callback }: Props) => {
   const article = useRef(null);
   const prev = useRef({width: -2, height: -2})
   useEffect(() => {
@@ -28,7 +28,7 @@ export const SvgCanvas: React.FC = ({ children, callback }: Props) => {
   }, [article])
   return(
     <article ref={article}>
-      <svg>{children}</svg>
+      {children}
     </article>
   )
 }
