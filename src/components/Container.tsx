@@ -1,14 +1,14 @@
 import * as React from 'react'
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 export type ObserverCallback =  (entry: DOMRectReadOnly) => void
 
-type Props<S> = {
-  children: ReactNode
+type Props = {
+  children: React.ReactNode
   callback: ObserverCallback
 }
 
-export const Container: React.FC = ({ children, callback }: Props) => {
+export const Container: React.FC<Props> = ({ children, callback }) => {
   const article = useRef(null);
   const prev = useRef({width: -2, height: -2})
   useEffect(() => {
