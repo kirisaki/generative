@@ -21,30 +21,66 @@ type Rect0 = {
   h: number
 }
 
-const divSquare = (ratio: number): Rect0[] => {
-  let w = screen.width > screen.height ? screen.height : screen.width
-  const s = w
-  let x = 0
-  let y = 0
+type DrawData = {
+  isSquare: boolean
+  x: number
+  y: number
+  w: number
+}
+
+
+const divSquare = (x0: number, y0: number, wd: number, ratio: number, thr: number, accum: Rect0[]): Rect0[] => {
+  let w = wd
   let i = 0
-  let results = []
-  while(w > 0.01){
+  let x = x0
+  let y = y0
+  const xe = w + x
+  const ye = w + y
+  let result = accum.concat({x, y, w, h: w})
+  while(w > thr){
     i++
-    if(i % 2 == 1){
-      while(x + w * ratio <= s + 0.01){
-        results.push({x, y, w: w * ratio, h: w})
+    if(i % 2 === 1){
+      while(x + w * ratio < xe + 0.1){
+        result.push(...divRect(x, y, w * ratio, ratio, thr, result))
         x += w * ratio
       }
-      w = s - x
+      w = xe - x
     }else{
-      while(y + w / ratio <= s + 0.01){
-        results.push({x, y, w: w, h: w / ratio})
+      while(y + w / ratio < ye + 0.1){
+        result.push(...divRect(x, y, w, ratio, thr, result))
         y += w / ratio
       }
-      w = s - y
+      w = ye - y
     }
   }
-  return results
+  return result
+}
+
+const divRect = (x0: number, y0: number, wd: number, ratio: number, thr: number, accum: Rect0[]): Rect0[] => {
+  let w = wd
+  let x = x0
+  let y = y0
+  const xe = x + w
+  const ye = y + w / ratio
+  let i = 0
+  let result = accum.concat({x, y, w, h: w / ratio})
+  while(w > thr){
+    i++
+    if(i % 2 === 0){
+      while(x + w < xe + 0.1){
+        result.push(...divSquare(x, y, w, ratio, thr, result))
+        x += w
+      }
+      w = xe - x
+    }else{
+      while(y + w < ye + 0.1){
+        result.push(...divSquare(x, y, w, ratio, thr, result))
+        y += w
+      }
+      w = ye - y
+    }
+  }
+  return result
 }
 
 const colorize = (rs: Rect0[], gen0: RandGen): Rect[] => {
@@ -60,15 +96,16 @@ const colorize = (rs: Rect0[], gen0: RandGen): Rect[] => {
 }
 
 export const Euclid: React.FC = () => {
-  const [screen, setScreen] = useState<DOMRectReadOnly|null>(null)
+  const [container, setContainer] = useState<DOMRectReadOnly|null>(null)
   const [rects, setRects] = useState<Rect[]>([])
   const [nums, setNums] = useState<[number, number]>([0, 0])
   const [active, setActive] = useState<boolean>(true)
   const size = (s: DOMRectReadOnly|null): number => s === null ? 0 : (s.width > s.height ? s.height : s.width)
   useEffect(() => {
-    if(screen === null){
+    if(container === null){
       return () => {}
     }
+    // Stabilize MT randomizer
     let gen = newRandGen(Date.now())
     for(let j = 0; j < 4000; j++){
       const [, g] = randNext(gen)
@@ -80,12 +117,17 @@ export const Euclid: React.FC = () => {
     const [numB, g2] = randRange(1, 10, gen)
     gen = g2
     setNums([numA, numB])
-    setRects(colorize(divSquare(numB/numA), gen))
-  }, [screen, active])
+
+    const width = size(container) 
+    const ratio = numB / numA
+
+    const result = divSquare(0, 0, 500, 6/10, 160, [])
+    setRects(colorize(result, gen))
+  }, [container, active])
   return(
-    <Container callback={setScreen}>
+    <Container callback={setContainer}>
       <div css={css({zIndex: 100, fontSize: '2rem', position: 'absolute', top: '1rem', left: '1rem'})}>A = {nums[0]}, B = {nums[1]}</div>
-      <svg css={css({width: size(screen), height: size(screen)})}>
+      <svg css={css({width: size(container), height: size(container)})}>
         {rects.map((r, i) =>
           <rect
             key = {i}
