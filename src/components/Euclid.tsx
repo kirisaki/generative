@@ -15,78 +15,124 @@ type Rect = {
 }
 
 type Rect0 = {
-  x: number
-  y: number
-  w: number
-  h: number
+  kind: 'rect0'
+  body: {
+    x: number
+    y: number
+    w: number
+    h: number
+  }[]
 }
 
 type DrawData = {
-  isSquare: boolean
+  kind: 'drawData'
   x: number
   y: number
   w: number
+  ratio: number
+  thr: number
+  accum: Rect0
+  isSquare: boolean
 }
 
+type StackFrame = {
+  iter: Generator<DrawData, Rect0, Rect0 | null> | null
+  last: Rect0 | null
+  caller: StackFrame | null
+}
 
-const divSquare = (x0: number, y0: number, wd: number, ratio: number, thr: number, accum: Rect0[]): Rect0[] => {
-  let w = wd
-  let i = 0
-  let x = x0
-  let y = y0
-  const xe = w + x
-  const ye = w + y
-  let result = accum.concat({x, y, w, h: w})
-  while(w > thr){
-    i++
-    if(i % 2 === 1){
-      while(x + w * ratio < xe + 0.1){
-        result.push(...divRect(x, y, w * ratio, ratio, thr, result))
-        x += w * ratio
+const draw = function*(data: DrawData): Generator<DrawData, Rect0, Rect0 | null>{
+  const ratio = data.ratio
+  const thr = data.thr
+  if(data.isSquare){
+    let w = data.w
+    let i = 0
+    let x = data.x
+    let y = data.y
+    const xe = w + x
+    const ye = w + y
+    let result: Rect0 = {kind: 'rect0', body: data.accum.body.concat({x, y, w, h: w})}
+    while(w > thr){
+      i++
+      if(i % 2 === 1){
+        while(x + w * ratio < xe + 0.1){
+          yield {kind: 'drawData', x, y, w: w * ratio, ratio, thr, accum: result, isSquare: false}
+          x += w * ratio
+        }
+        w = xe - x
+      }else{
+        while(y + w / ratio < ye + 0.1){
+          yield {kind: 'drawData', x, y, w, ratio, thr, accum: result, isSquare: false}
+          y += w / ratio
+        }
+        w = ye - y
       }
-      w = xe - x
-    }else{
-      while(y + w / ratio < ye + 0.1){
-        result.push(...divRect(x, y, w, ratio, thr, result))
-        y += w / ratio
+    }
+    return result
+  }else{
+    let w = data.w
+    let x = data.x
+    let y = data.y
+    const xe = x + w
+    const ye = y + w / ratio
+    let i = 0
+    let result: Rect0 = {kind: 'rect0', body: data.accum.body.concat({x, y, w, h: w / ratio})}
+    while(w > thr){
+      i++
+      if(i % 2 === 0){
+        while(x + w < xe + 0.1){
+          yield {kind: 'drawData', x, y, w, ratio, thr, accum: result, isSquare: true}
+          x += w
+        }
+        w = xe - x
+      }else{
+        while(y + w < ye + 0.1){
+          yield {kind: 'drawData', x, y, w, ratio, thr, accum: result, isSquare: true}
+          y += w
+        }
+        w = ye - y
       }
-      w = ye - y
+    }
+    return result
+  }
+}
+
+const runDraw = (func: (data: DrawData) => Generator<DrawData, Rect0, Rect0 | null>, arg: DrawData): Rect0 => {
+  const root: StackFrame = {iter: null, last: null, caller: null}
+  const callStack: StackFrame[] = []
+
+  callStack.push({iter: func(arg), last: null, caller: root})
+
+  let result: Rect0 = {kind: 'rect0', body: []}
+  while(callStack.length > 0){
+    const stackFrame = callStack[callStack.length - 1]
+    const {iter, last, caller} = stackFrame
+    if(iter === null || caller === null){
+      return {kind: 'rect0', body: []}
+    }
+    const {value, done} = iter.next(last)
+    if(value === null){
+      return {kind: 'rect0', body: []}
+    }
+    if(done && value.kind === 'rect0'){
+      caller.last = value
+      callStack.pop()
+    }else if(value.kind === 'drawData'){
+      result.body.push({x: value.x, y: value.y, w: value.w, h: value.isSquare ? value.w : value.w / value.ratio})
+      callStack.push({iter: func(value), last: null, caller: stackFrame})
     }
   }
-  return result
-}
-
-const divRect = (x0: number, y0: number, wd: number, ratio: number, thr: number, accum: Rect0[]): Rect0[] => {
-  let w = wd
-  let x = x0
-  let y = y0
-  const xe = x + w
-  const ye = y + w / ratio
-  let i = 0
-  let result = accum.concat({x, y, w, h: w / ratio})
-  while(w > thr){
-    i++
-    if(i % 2 === 0){
-      while(x + w < xe + 0.1){
-        result.push(...divSquare(x, y, w, ratio, thr, result))
-        x += w
-      }
-      w = xe - x
-    }else{
-      while(y + w < ye + 0.1){
-        result.push(...divSquare(x, y, w, ratio, thr, result))
-        y += w
-      }
-      w = ye - y
-    }
+  if(root.last === null){
+    return {kind: 'rect0', body: []}
+  }else{
+    return result
   }
-  return result
 }
 
-const colorize = (rs: Rect0[], gen0: RandGen): Rect[] => {
+const colorize = (rs: Rect0, gen0: RandGen): Rect[] => {
   let gen = gen0
   let result = []
-  for (const r of rs){
+  for (const r of rs.body){
     const [hue, g] = randRange(0, 360, gen)
     gen = g
     const color = hsvToRgbHex(hue, 0.5, 0.8)
@@ -121,7 +167,8 @@ export const Euclid: React.FC = () => {
     const width = size(container) 
     const ratio = numB / numA
 
-    const result = divSquare(0, 0, 500, 6/10, 160, [])
+    const result = runDraw(draw, {kind: 'drawData', x: 0, y: 0, w: 500, ratio: 6/10, thr: 10, accum: {kind: 'rect0', body: []}, isSquare: true})
+    console.log(result)
     setRects(colorize(result, gen))
   }, [container, active])
   return(
