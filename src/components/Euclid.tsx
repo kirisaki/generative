@@ -29,6 +29,7 @@ type DrawData = {
   x: number
   y: number
   w: number
+  wmax: number
   ratio: number
   thr: number
   accum: Rect0
@@ -44,6 +45,7 @@ type StackFrame = {
 const draw = function*(data: DrawData): Generator<DrawData, Rect0, Rect0 | null>{
   const ratio = data.ratio
   const thr = data.thr
+  const wmax = data.wmax
   if(data.isSquare){
     let w = data.w
     let i = 0
@@ -52,17 +54,17 @@ const draw = function*(data: DrawData): Generator<DrawData, Rect0, Rect0 | null>
     const xe = w + x
     const ye = w + y
     let result: Rect0 = {kind: 'rect0', body: data.accum.body.concat({x, y, w, h: w})}
-    while(w > thr){
+    while(w > wmax * thr){
       i++
       if(i % 2 === 1){
         while(x + w * ratio < xe + 0.1){
-          yield {kind: 'drawData', x, y, w: w * ratio, ratio, thr, accum: result, isSquare: false}
+          yield {kind: 'drawData', x, y, w: w * ratio, wmax: data.wmax, ratio, thr, accum: result, isSquare: false}
           x += w * ratio
         }
         w = xe - x
       }else{
         while(y + w / ratio < ye + 0.1){
-          yield {kind: 'drawData', x, y, w, ratio, thr, accum: result, isSquare: false}
+          yield {kind: 'drawData', x, y, w, wmax: data.wmax, ratio, thr, accum: result, isSquare: false}
           y += w / ratio
         }
         w = ye - y
@@ -77,17 +79,17 @@ const draw = function*(data: DrawData): Generator<DrawData, Rect0, Rect0 | null>
     const ye = y + w / ratio
     let i = 0
     let result: Rect0 = {kind: 'rect0', body: data.accum.body.concat({x, y, w, h: w / ratio})}
-    while(w > thr){
+    while(w > wmax * thr){
       i++
       if(i % 2 === 0){
         while(x + w < xe + 0.1){
-          yield {kind: 'drawData', x, y, w, ratio, thr, accum: result, isSquare: true}
+          yield {kind: 'drawData', x, y, w, wmax: data.wmax, ratio, thr, accum: result, isSquare: true}
           x += w
         }
         w = xe - x
       }else{
         while(y + w < ye + 0.1){
-          yield {kind: 'drawData', x, y, w, ratio, thr, accum: result, isSquare: true}
+          yield {kind: 'drawData', x, y, w, wmax: data.wmax, ratio, thr, accum: result, isSquare: true}
           y += w
         }
         w = ye - y
@@ -158,17 +160,22 @@ export const Euclid: React.FC = () => {
       gen = g
     }
 
-    const [numA, g1] = randRange(1, 10, gen)
+    const [numA, g1] = randRange(1, 20, gen)
     gen = g1
-    const [numB, g2] = randRange(1, 10, gen)
+    let [numB, g2] = randRange(1, 20, gen)
     gen = g2
+
+    while(numA === numB){
+      const [n, g] = randRange(1, 20, gen)
+      gen = g
+      numB = n
+    }
     setNums([numA, numB])
 
     const width = size(container) 
     const ratio = numB / numA
 
-    const result = runDraw(draw, {kind: 'drawData', x: 0, y: 0, w: 500, ratio: 6/10, thr: 10, accum: {kind: 'rect0', body: []}, isSquare: true})
-    console.log(result)
+    const result = runDraw(draw, {kind: 'drawData', x: 0, y: 0, w: width, wmax: width, ratio, thr: 0.01, accum: {kind: 'rect0', body: []}, isSquare: true})
     setRects(colorize(result, gen))
   }, [container, active])
   return(
